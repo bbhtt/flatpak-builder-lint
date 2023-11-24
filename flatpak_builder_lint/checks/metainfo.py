@@ -21,6 +21,7 @@ class MetainfoCheck(Check):
         ]
         metainfo_exts = [".appdata.xml", ".metainfo.xml"]
         metainfo_path = None
+        is_baseapp = appid.endswith(".BaseApp")
 
         for metainfo_dir in metainfo_dirs:
             for ext in metainfo_exts:
@@ -28,24 +29,25 @@ class MetainfoCheck(Check):
                 if os.path.exists(metainfo_dirext):
                     metainfo_path = metainfo_dirext
 
-        if not skip_appstream_check:
-            if not os.path.exists(appstream_path):
-                self.errors.add("appstream-missing-appinfo-file")
+        if not is_baseapp:
+            if not skip_appstream_check:
+                if not os.path.exists(appstream_path):
+                    self.errors.add("appstream-missing-appinfo-file")
 
-            if not metainfo_path:
-                self.errors.add("appstream-metainfo-missing")
+                if not metainfo_path:
+                    self.errors.add("appstream-metainfo-missing")
 
-            if metainfo_path:
-                appinfo_validation = appstream.validate(metainfo_path)
-                if appinfo_validation["returncode"] != 0:
-                    self.errors.add("appstream-failed-validation")
+                if metainfo_path:
+                    appinfo_validation = appstream.validate(metainfo_path)
+                    if appinfo_validation["returncode"] != 0:
+                        self.errors.add("appstream-failed-validation")
 
-                if not appstream.is_developer_name_present(appstream_path):
-                    self.warnings.add("appstream-missing-developer-name")
+                    if not appstream.is_developer_name_present(appstream_path):
+                        self.warnings.add("appstream-missing-developer-name")
 
-        if not (skip_icons_check or skip_appstream_check):
-            if not os.path.exists(icon_path):
-                self.errors.add("appstream-missing-icon-file")
+            if not (skip_icons_check or skip_appstream_check):
+                if not os.path.exists(icon_path):
+                    self.errors.add("appstream-missing-icon-file")
 
     def check_build(self, path: str) -> None:
         appid = builddir.infer_appid(path)
