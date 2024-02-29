@@ -26,3 +26,9 @@ cd org.flatpak.Builder
 flatpak-builder --arch=$arch --user --verbose --force-clean --repo=repo \
     --ccache --install-deps-from=flathub builddir org.flatpak.Builder.json
 rm -rf "builddir/files/lib/debug"
+
+pwd
+
+ls  -lA
+
+ls -lA docker/
