@@ -9,22 +9,29 @@ from . import config
 
 
 def is_git_directory(path: str) -> bool:
+    print(f"Checking if path exists: {path}")
     if not os.path.exists(path):
+        print(f"Path does not exist: {path}")
         return False
-    return (
-        subprocess.run(
-            ["git", "rev-parse"],
-            cwd=path,
-            capture_output=True,
-            check=False,
-        ).returncode
-        == 0
+
+    print(f"Running 'git rev-parse' in directory: {path}")
+    result = subprocess.run(
+        ["git", "rev-parse"],
+        cwd=path,
+        capture_output=True,
+        check=False,
     )
+
+    if result.returncode == 0:
+        print(f"'{path}' is a valid Git repository.")
+        return True
+    print(f"'{path}' is not a Git repository. Return code: {result.returncode}")
+    return False
 
 
 def get_git_toplevel(path: str) -> str | None:
     if not is_git_directory(path):
-        return None
+        toplevel = None
 
     result = subprocess.run(
         ["git", "rev-parse", "--show-toplevel"],
@@ -34,7 +41,15 @@ def get_git_toplevel(path: str) -> str | None:
         check=False,
     )
 
-    return result.stdout.strip() if result.returncode == 0 else None
+    if result.returncode == 0:
+        toplevel = result.stdout.strip()
+
+    if toplevel == None:
+        print("Failed to get toplevel")
+    else:
+        print(f"Found toplevel {toplevel}")
+
+    return toplevel
 
 
 def get_github_repo_namespace(path: str) -> str | None:
@@ -67,6 +82,7 @@ def get_github_repo_namespace(path: str) -> str | None:
     elif ssh_match and "/" in ssh_match.group(1):
         namespace = ssh_match.group(1).split("/")[0]
 
+    print(namespace)
     return namespace
 
 
@@ -116,29 +132,8 @@ def get_git_large_files(repo_path: str, min_size_mb: int = 20) -> set[str]:
     except subprocess.CalledProcessError:
         pass
 
+    print(f"Large files: {files}")
     return files
-
-
-def get_directory_size(path: str) -> int:
-    def get_size(directory: str) -> int:
-        total = 0
-        if not os.path.exists(directory):
-            return 0
-
-        for dirpath, _, filenames in os.walk(directory, topdown=True):
-            for f in filenames:
-                try:
-                    fp = os.path.join(dirpath, f)
-                    if os.path.isfile(fp):
-                        total += os.path.getsize(fp)
-                except OSError:
-                    pass
-        return total
-
-    total_size = get_size(path)
-    git_size = get_size(os.path.join(path, ".git"))
-
-    return total_size - git_size
 
 
 def get_repo_tree_size(path: str) -> int:
@@ -194,15 +189,24 @@ def show_manifest(filename: str) -> dict[str, Any]:
             flathub_json = json.load(f)
             manifest_json["x-flathub"] = flathub_json
 
-    github_ns = get_github_repo_namespace(manifest_basedir)
+    print(f"Manifest basedir: {manifest_basedir}")
 
+    github_ns = get_github_repo_namespace(manifest_basedir)
+    print(f"Found github namespace: {github_ns}")
     if github_ns in ("flathub", "flathub-infra"):
         large_files = get_git_large_files(manifest_basedir)
+        print(f"Found large files: {large_files}")
         if large_files:
             manifest_json["x-large-git-files"] = [os.path.basename(file) for file in large_files]
 
-        if get_repo_tree_size(manifest_basedir) > (25 * 1024 * 1024):
+        repo_size = get_repo_tree_size(manifest_basedir)
+
+        print(f"Repo size: {repo_size}")
+
+        if repo_size > (25 * 1024 * 1024):
             manifest_json["x-manifest-dir-large"] = True
+
+    print(f"Gitmodules path: {gitmodules_path}")
 
     if os.path.exists(gitmodules_path) and github_ns in ("flathub", "flathub-infra"):
         with open(gitmodules_path) as f:
